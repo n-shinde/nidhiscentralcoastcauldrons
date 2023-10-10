@@ -23,18 +23,34 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
     # num potions
 
     for potion in potions_delivered:
-        # checking first if potion is red and then retrieving quantity
         if potion.potion_type == [100, 0, 0, 0]:
-            total_quantity_delivered += potion.quantity
+            total_red_potions += potion.quantity
             total_red_ml += 100*potion.quantity
+        
+        if potion.potion_type == [0, 100, 0, 0]:
+            total_green_potions += potion.quantity
+            total_green_ml += 100*potion.quantity
+        
+        if potion.potion_type == [0, 0, 100, 0]:
+            total_blue_potions += potion.quantity
+            total_blue_ml += 100*potion.quantity
+
     
     with db.engine.begin() as connection:
         connection.execute(sqlalchemy.text(
-            "UPDATE global_inventory SET num_red_potions = num_red_potions + total_quantity_delivered"))
+            "UPDATE global_inventory SET num_red_potions = num_red_potions + total_red_potions"))
+        connection.execute(sqlalchemy.text(
+            "UPDATE global_inventory SET num_green_potions = num_green_potions + total_green_potions"))
+        connection.execute(sqlalchemy.text(
+            "UPDATE global_inventory SET num_blue_potions = num_blue_potions + total_blue_potions"))
     
     with db.engine.begin() as connection:
         connection.execute(sqlalchemy.text(
             "UPDATE global_inventory SET num_red_ml = num_red_ml - total_red_ml"))
+        connection.execute(sqlalchemy.text(
+            "UPDATE global_inventory SET num_green_ml = num_green_ml - total_green_ml"))
+        connection.execute(sqlalchemy.text(
+            "UPDATE global_inventory SET num_blue_ml = num_blue_ml - total_blue_ml"))
 
     print(potions_delivered)
 
@@ -52,18 +68,30 @@ def get_bottle_plan():
     # green potion to add.
     # Expressed in integers from 1 to 100 that must sum up to 100.
 
-    # Initial logic: bottle all barrels into red potions.
+    # Initial logic: bottle all barrels (red, green, blue) into their respective potions.
 
     with db.engine.begin() as connection:
-        barrel_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory"))
+        red_barrel_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory"))
+        green_barrel_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory"))
+        blue_barrel_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory"))
                                            
     # return the number of bottles that we want to deliver
-    bottles_to_deliver = barrel_ml // 100
+    red_bottles_to_deliver = red_barrel_ml // 100
+    green_bottles_to_deliver = green_barrel_ml // 100
+    blue_bottles_to_deliver = blue_barrel_ml // 100
 
 
     return [
             {
                 "potion_type": [100, 0, 0, 0],
-                "quantity": bottles_to_deliver,
+                "quantity": red_bottles_to_deliver,
+            },
+            {
+                "potion_type": [0, 100, 0, 0],
+                "quantity": green_bottles_to_deliver,
+            },
+            {
+                "potion_type": [0, 0, 100, 0],
+                "quantity": blue_bottles_to_deliver,
             }
     ]
