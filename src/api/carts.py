@@ -26,7 +26,7 @@ def create_cart(new_cart: NewCart):
     customer_id = cart_id
 
     with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text("INSERT INTO carts (cart_id, customer_name) VALUES (: customer_id, : name)"))
+        connection.execute(sqlalchemy.text("INSERT INTO carts (cart_id, customer_name) VALUES (:customer_id, :name)"))
 
     return {"cart_id": cart_id}
 
