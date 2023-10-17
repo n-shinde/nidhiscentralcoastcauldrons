@@ -108,10 +108,12 @@ def get_bottle_plan():
         dark_ml = connection.execute(sqlalchemy.text("SELECT dark_ml FROM global_inventory")).scalar()
     
         potions_to_make = connection.execute(sqlalchemy.text("SELECT potion_type FROM potions WHERE num_potions < 1")).all()
+        potion_list = [item[0] for item in potions_to_make]
 
-        print(potions_to_make)
 
-    for potion_recipe in potions_to_make:
+        print(potion_list)
+
+    for potion_recipe in potion_list:
         r = potion_recipe[0] 
         print(r)
         g = potion_recipe[1]
