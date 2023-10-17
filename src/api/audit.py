@@ -15,18 +15,24 @@ router = APIRouter(
 def get_inventory():
     """ """
     total_potions = 0
+    red_ml = 0
+    green_ml = 0
+    blue_ml = 0
+    dark_ml = 0
     total_ml = 0
     gold = 0
 
     with db.engine.begin() as connection:
-        total_ml += connection.execute(sqlalchemy.text("SELECT SUM(red_ml, green_ml, blue_ml) FROM global_inventory")).scalar()
-        # total_ml += connection.execute(sqlalchemy.text("SELECT green_ml FROM global_inventory"))
-        # total_ml += connection.execute(sqlalchemy.text("SELECT blue_ml FROM global_inventory"))
-        # total_ml += connection.execute(sqlalchemy.text("SELECT dark_ml FROM global_inventory"))
+        red_ml = connection.execute(sqlalchemy.text("SELECT red_ml FROM global_inventory")).scalar()       
+        green_ml = connection.execute(sqlalchemy.text("SELECT green_ml FROM global_inventory")).scalar()
+        blue_ml = connection.execute(sqlalchemy.text("SELECT blue_ml FROM global_inventory")).scalar()
+        dark_ml = connection.execute(sqlalchemy.text("SELECT dark_ml FROM global_inventory")).scalar()
 
-        total_potions += connection.execute(sqlalchemy.text("SELECT SUM(num_potions) FROM potions")).scalar()
+        total_potions = connection.execute(sqlalchemy.text("SELECT SUM(num_potions) FROM potions")).scalar()
         
         gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+    
+    total_ml = red_ml + green_ml + blue_ml + dark_ml
 
     return {"number_of_potions": total_potions, "ml_in_barrels": total_ml, "gold": gold}
 
