@@ -120,6 +120,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 SELECT price FROM potions
                 WHERE id = :potion_id
                 """),[{"potion_id":potion_id}] ).scalar()
+            
             total_potions_bought += potion[1]
             gold_earned += price*potion[1]
     
@@ -130,7 +131,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 """
                 UPDATE global_inventory SET
                 gold = gold + :gold_earned
-                """))
+                """), [{"gold_earned":gold_earned}])
             
         
     # Update potions table, deduct potions that were sold 
@@ -142,6 +143,6 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 SET num_potions = potions.num_potions - cart_items.quantity
                 FROM cart_items
                 WHERE potion.id = cart_items.potion_id and cart_items.cart_id = :cart_id;
-                """))
+                """), [{"cart_id":cart_id}])
 
     return {"total_potions_bought": total_potions_bought, "total_gold_paid": gold_earned}
