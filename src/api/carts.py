@@ -26,7 +26,8 @@ def create_cart(new_cart: NewCart):
     customer_id = cart_id
 
     with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text("INSERT INTO carts (cart_id, customer_name) VALUES (:customer_id, :name)"))
+        connection.execute(sqlalchemy.text("INSERT INTO carts (cart_id, customer_name) VALUES (:customer_id, :name)"), 
+                           [{"customer_id": customer_id, "name": name}])
 
     return {"cart_id": cart_id}
 
@@ -35,7 +36,7 @@ def create_cart(new_cart: NewCart):
 def get_cart(cart_id: int):
     """ """
     with db.engine.begin() as connection:
-        cart = connection.execute(sqlalchemy.text("SELECT * FROM carts WHERE cart_id = :cart_id"))
+        cart = connection.execute(sqlalchemy.text("SELECT * FROM carts WHERE cart_id = :cart_id"), [{"cart_id": cart_id}])
 
     return {cart_id}
 
@@ -59,7 +60,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
                 SELECT id FROM potions 
                 WHERE sku == :item_sku
                 """
-            ))
+            ), [{"item_sku":item_sku}])
         
         available_potions = connection.execute(
             sqlalchemy.text(
@@ -67,7 +68,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
                 SELECT num_potions FROM potions 
                 WHERE sku == :item_sku
                 """
-            ))
+            ), [{"item_sku":item_sku}])
         
         connection.execute(
             sqlalchemy.text(
@@ -75,7 +76,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
                 INSERT INTO cart_items (cart_id, potion_id) 
                 VALUES (:cart_id, :potion_id)
                 """
-            ))
+            ), [{"cart_id":cart_id, "potion_id":potion_id}])
         
         if (item_quantity <= available_potions):
             connection.execute(
@@ -83,7 +84,8 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
                     """UPDATE cart_items SET
                     quantity = :cart_item.quantity
                     WHERE potion_id = :potion_id
-                    """))
+                    """
+                ), [{"cart_item.quantity":cart_item.quantity, "potion_id":potion_id}])
         else:
             raise HTTPException(status_code=400, message="Insufficient potions available in inventory to purchase. Try again.")
 
@@ -107,7 +109,8 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 """
                 SELECT potion_id, quantity FROM cart_items
                 WHERE cart_id = :cart_id and cart_id.quantity > 0
-                """)).all()
+                """
+            ), [{"cart_id":cart_id}]).all()
         
         for potion in valid_potions:
             potion_id = potion[0]
@@ -116,7 +119,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 """
                 SELECT price FROM potions
                 WHERE id = :potion_id
-                """)).scalar()
+                """),[{"potion_id":potion_id}] ).scalar()
             total_potions_bought += potion[1]
             gold_earned += price*potion[1]
     

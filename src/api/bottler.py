@@ -35,7 +35,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                 num_potions = num_potions + :potion_quantity
                 WHERE potion_type = :potion_type
                 """
-            ))
+            ), [{"potion_quantity":potion_quantity, "potion_type":potion_type}])
 
             # Deduct ml from inventory
             for i in range(0, len(potion_type)):
@@ -47,7 +47,8 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                         UPDATE global_inventory SET 
                         red_ml = red_ml - :new_red
                         """
-                    ))
+                    ), [{"new_red":new_red}])
+
                 if (i == 1 and potion_type[i] > 0):
                     new_green = potion_type[i]
                     connection.execute(
@@ -56,7 +57,8 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                         UPDATE global_inventory SET 
                         green_ml = green_ml - :new_green
                         """
-                    ))
+                    ), [{"new_green":new_green}])
+
                 if (i == 2 and potion_type[i] > 0):
                     new_blue = potion_type[i]
                     connection.execute(
@@ -65,7 +67,8 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                         UPDATE global_inventory SET 
                         blue_ml = blue_ml - :new_blue
                         """
-                    ))
+                    ), [{"new_blue":new_blue}])
+
                 if (i == 3 and potion_type[i] > 0):
                     new_dark = potion_type[i]
                     connection.execute(
@@ -74,7 +77,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                         UPDATE global_inventory SET 
                         dark_ml = dark_ml - :new_dark
                         """
-                    ))
+                    ), [{"new_dark":new_dark}])
             # end inner for loop
         # end potion loop
 
