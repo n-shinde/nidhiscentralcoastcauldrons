@@ -14,16 +14,14 @@ router = APIRouter(
 class NewCart(BaseModel):
     customer: str
 
-
 cart_id = 0
-carts = {}
-item_list = []
-quantity_list = []
 
 @router.post("/")
 def create_cart(new_cart: NewCart):
     """ """
+    global cart_id 
     cart_id += 1
+
     name = new_cart.customer
     with db.engine.begin() as connection:
         connection.execute(sqlalchemy.text("INSERT INTO carts (cart_id, customer_name) VALUES (:cart_id, :name)"))
@@ -116,7 +114,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 """
                 SELECT price FROM potions
                 WHERE id = :potion_id
-                """))
+                """)).scalar()
             total_potions_bought += potion[1]
             gold_earned += price*potion[1]
     
