@@ -58,7 +58,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
             sqlalchemy.text(
                 """
                 SELECT id FROM potions 
-                WHERE sku == :item_sku
+                WHERE sku = :item_sku
                 """
             ), [{"item_sku":item_sku}])
         
@@ -66,7 +66,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
             sqlalchemy.text(
                 """
                 SELECT num_potions FROM potions 
-                WHERE sku == :item_sku
+                WHERE sku = :item_sku
                 """
             ), [{"item_sku":item_sku}])
         
