@@ -109,9 +109,13 @@ def get_bottle_plan():
     
         potions_to_make = connection.execute(sqlalchemy.text("SELECT potion_type FROM potions WHERE num_potions < 1")).all()
 
+        print(potions_to_make)
+
     for potion_recipe in potions_to_make:
         r = potion_recipe[0] 
+        print(r)
         g = potion_recipe[1]
+        print(g)
         b = potion_recipe[2]
         d = potion_recipe[3]
         
