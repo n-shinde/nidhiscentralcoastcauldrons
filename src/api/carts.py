@@ -62,6 +62,8 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
                 """
             ), [{"item_sku":item_sku}]).scalar()
         
+        print(potion_id)
+        
         available_potions = connection.execute(
             sqlalchemy.text(
                 """
