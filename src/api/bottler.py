@@ -102,12 +102,12 @@ def get_bottle_plan():
     bottle_list = []
 
     with db.engine.begin() as connection:
-        red_ml = connection.execute(sqlalchemy.text("SELECT red_ml FROM global_inventory"))
-        green_ml = connection.execute(sqlalchemy.text("SELECT green_ml FROM global_inventory"))
-        blue_ml = connection.execute(sqlalchemy.text("SELECT blue_ml FROM global_inventory"))
-        dark_ml = connection.execute(sqlalchemy.text("SELECT dark_ml FROM global_inventory"))
+        red_ml = connection.execute(sqlalchemy.text("SELECT red_ml FROM global_inventory")).scalar()
+        green_ml = connection.execute(sqlalchemy.text("SELECT green_ml FROM global_inventory")).scalar()
+        blue_ml = connection.execute(sqlalchemy.text("SELECT blue_ml FROM global_inventory")).scalar()
+        dark_ml = connection.execute(sqlalchemy.text("SELECT dark_ml FROM global_inventory")).scalar()
     
-    potions_to_make = connection.execute(sqlalchemy.text("SELECT potion_type FROM potions WHERE num_potions < 1")).all()
+        potions_to_make = connection.execute(sqlalchemy.text("SELECT potion_type FROM potions WHERE num_potions < 1")).all()
 
     for potion_recipe in potions_to_make:
         r = potion_recipe[0] 
