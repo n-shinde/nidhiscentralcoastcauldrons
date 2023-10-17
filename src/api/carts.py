@@ -84,10 +84,10 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
             connection.execute(
                 sqlalchemy.text(
                     """UPDATE cart_items SET
-                    quantity = :cart_item.quantity
+                    quantity = :item_quantity
                     WHERE potion_id = :potion_id
                     """
-                ), [{"cart_item.quantity":cart_item.quantity, "potion_id":potion_id}])
+                ), [{"item_quantity":item_quantity, "potion_id":potion_id}])
         else:
             raise HTTPException(status_code=400, message="Insufficient potions available in inventory to purchase. Try again.")
 
