@@ -22,12 +22,12 @@ def create_cart(new_cart: NewCart):
     global cart_id 
     cart_id += 1
 
-    print("cart_id:" + cart_id)
+    print(cart_id)
 
     name = new_cart.customer
     customer_id = cart_id
 
-    print("customer_id" + customer_id)
+    print(customer_id)
 
     with db.engine.begin() as connection:
         connection.execute(sqlalchemy.text("INSERT INTO carts (cart_id, customer_name) VALUES (:customer_id, :name)"))
