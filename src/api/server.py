@@ -41,5 +41,4 @@ async def validation_exception_handler(request, exc):
 
 @app.get("/")
 async def root():
-    # Ask if this works
     return {"message": "Welcome to Wicked Juice!!!"}

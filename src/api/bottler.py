@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from enum import Enum
 from pydantic import BaseModel
 from src.api import auth
@@ -19,38 +19,64 @@ class PotionInventory(BaseModel):
 def post_deliver_bottles(potions_delivered: list[PotionInventory]):
     """ """
 
-    # modify the database to reduce the number of ml we have and increase
-    # num potions
-
-    for potion in potions_delivered:
-        if potion.potion_type == [100, 0, 0, 0]:
-            total_red_potions += potion.quantity
-            total_red_ml += 100*potion.quantity
-        
-        if potion.potion_type == [0, 100, 0, 0]:
-            total_green_potions += potion.quantity
-            total_green_ml += 100*potion.quantity
-        
-        if potion.potion_type == [0, 0, 100, 0]:
-            total_blue_potions += potion.quantity
-            total_blue_ml += 100*potion.quantity
-
+    # First update potions with new potions made
     
     with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text(
-            "UPDATE global_inventory SET num_red_potions = num_red_potions + total_red_potions"))
-        connection.execute(sqlalchemy.text(
-            "UPDATE global_inventory SET num_green_potions = num_green_potions + total_green_potions"))
-        connection.execute(sqlalchemy.text(
-            "UPDATE global_inventory SET num_blue_potions = num_blue_potions + total_blue_potions"))
-    
-    with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text(
-            "UPDATE global_inventory SET num_red_ml = num_red_ml - total_red_ml"))
-        connection.execute(sqlalchemy.text(
-            "UPDATE global_inventory SET num_green_ml = num_green_ml - total_green_ml"))
-        connection.execute(sqlalchemy.text(
-            "UPDATE global_inventory SET num_blue_ml = num_blue_ml - total_blue_ml"))
+        for potion in potions_delivered:
+
+            # Update potions with new potions to add
+            potion_type = potion.potion_type
+            potion_quantity = potion.quantity
+
+            connection.execute(
+                sqlalchemy.text(
+                """
+                UPDATE potions SET 
+                num_potions = num_potions + :potion_quantity
+                WHERE potion_type = :potion_type
+                """
+            ))
+
+            # Deduct ml from inventory
+            for i in range(0, len(potion_type)):
+                if (i == 0 and potion_type[i] > 0):
+                    new_red = potion_type[i]
+                    connection.execute(
+                        sqlalchemy.text(
+                        """
+                        UPDATE global_inventory SET 
+                        red_ml = red_ml - :new_red
+                        """
+                    ))
+                if (i == 1 and potion_type[i] > 0):
+                    new_green = potion_type[i]
+                    connection.execute(
+                        sqlalchemy.text(
+                        """
+                        UPDATE global_inventory SET 
+                        green_ml = green_ml - :new_green
+                        """
+                    ))
+                if (i == 2 and potion_type[i] > 0):
+                    new_blue = potion_type[i]
+                    connection.execute(
+                        sqlalchemy.text(
+                        """
+                        UPDATE global_inventory SET 
+                        blue_ml = blue_ml - :new_blue
+                        """
+                    ))
+                if (i == 3 and potion_type[i] > 0):
+                    new_dark = potion_type[i]
+                    connection.execute(
+                        sqlalchemy.text(
+                        """
+                        UPDATE global_inventory SET 
+                        dark_ml = dark_ml - :new_dark
+                        """
+                    ))
+            # end inner for loop
+        # end potion loop
 
     print(potions_delivered)
 
@@ -70,28 +96,37 @@ def get_bottle_plan():
 
     # Initial logic: bottle all barrels (red, green, blue) into their respective potions.
 
+    bottle_list = []
+
     with db.engine.begin() as connection:
-        red_barrel_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory"))
-        green_barrel_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory"))
-        blue_barrel_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory"))
-                                           
-    # return the number of bottles that we want to deliver
-    red_bottles_to_deliver = red_barrel_ml // 100
-    green_bottles_to_deliver = green_barrel_ml // 100
-    blue_bottles_to_deliver = blue_barrel_ml // 100
+        red_ml = connection.execute(sqlalchemy.text("SELECT red_ml FROM global_inventory"))
+        green_ml = connection.execute(sqlalchemy.text("SELECT green_ml FROM global_inventory"))
+        blue_ml = connection.execute(sqlalchemy.text("SELECT blue_ml FROM global_inventory"))
+        dark_ml = connection.execute(sqlalchemy.text("SELECT dark_ml FROM global_inventory"))
+    
+    potions_to_make = connection.execute("SELECT potion_type FROM potions WHERE num_potions < 1").all()
 
+    for potion_recipe in potions_to_make:
+        r = potion_recipe[0] 
+        g = potion_recipe[1]
+        b = potion_recipe[2]
+        d = potion_recipe[3]
+        
+        if (red_ml >= r and green_ml >= g and blue_ml >= b and dark_ml >= d):
+            bottle_list.append(
+                {
+                    "potion_type": potion_recipe,
+                    "quantity": 1
+                }
+            )
+            if (r > 0):
+                red_ml -= r
+            if (g > 0):
+                green_ml -= g
+            if (b > 0):
+                blue_ml -= b
+            if (d > 0):
+                dark_ml -= d
+            
+    return bottle_list
 
-    return [
-            {
-                "potion_type": [100, 0, 0, 0],
-                "quantity": red_bottles_to_deliver,
-            },
-            {
-                "potion_type": [0, 100, 0, 0],
-                "quantity": green_bottles_to_deliver,
-            },
-            {
-                "potion_type": [0, 0, 100, 0],
-                "quantity": blue_bottles_to_deliver,
-            }
-    ]

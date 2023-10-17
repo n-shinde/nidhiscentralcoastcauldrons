@@ -23,16 +23,21 @@ quantity_list = []
 @router.post("/")
 def create_cart(new_cart: NewCart):
     """ """
-    # ask what the cart_id
     cart_id += 1
-    carts[cart_id] = {"customer_name":new_cart.customer}
-    return {"cart_id": str(cart_id)}
+    name = new_cart.customer
+    with db.engine.begin() as connection:
+        connection.execute(sqlalchemy.text("INSERT INTO carts (cart_id, customer_name) VALUES (:cart_id, :name)"))
+
+    return {"cart_id": cart_id}
 
 
 @router.get("/{cart_id}")
 def get_cart(cart_id: int):
     """ """
-    return {carts[cart_id]}
+    with db.engine.begin() as connection:
+        cart = connection.execute(sqlalchemy.text("SELECT * FROM carts WHERE cart_id = :cart_id"))
+
+    return {cart_id}
 
 
 class CartItem(BaseModel):
@@ -42,9 +47,45 @@ class CartItem(BaseModel):
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
-    item_list.append(item_sku)
-    quantity_list.append(cart_item.quantity)
-    carts[cart_id].update({"item":item_list, "quantity":quantity_list})
+
+    available_potions = 0
+    potion_id = 0
+    item_quantity = cart_item.quantity
+
+    with db.engine.begin() as connection:
+        potion_id = connection.execute(
+            sqlalchemy.text(
+                """
+                SELECT id FROM potions 
+                WHERE sku == :item_sku
+                """
+            ))
+        
+        available_potions = connection.execute(
+            sqlalchemy.text(
+                """
+                SELECT num_potions FROM potions 
+                WHERE sku == :item_sku
+                """
+            ))
+        
+        connection.execute(
+            sqlalchemy.text(
+                """
+                INSERT INTO cart_items (cart_id, potion_id) 
+                VALUES (:cart_id, :potion_id)
+                """
+            ))
+        
+        if (item_quantity <= available_potions):
+            connection.execute(
+                sqlalchemy.text(
+                    """UPDATE cart_items SET
+                    quantity = :cart_item.quantity
+                    WHERE potion_id = :potion_id
+                    """))
+        else:
+            raise HTTPException(status_code=400, message="Insufficient potions available in inventory to purchase. Try again.")
 
     return "OK"
 
@@ -52,50 +93,52 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
 class CartCheckout(BaseModel):
     payment: str
 
-# What does cart_checkout do??? Has payment variable but do i do anything with it?
+
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
-    red_potions_bought, green_potions_bought, blue_potions_bought = 0
     gold_earned = 0
+    total_potions_bought = 0
 
+    # Calculate gold earned 
     with db.engine.begin() as connection:
-        red_potions_for_sale = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory"))
-        green_potions_for_sale = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory"))
-        blue_potions_for_sale = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory"))
+        valid_potions = connection.execute(
+            sqlalchemy.text(
+                """
+                SELECT potion_id, quantity FROM cart_items
+                WHERE cart_id = :cart_id and cart_id.quantity > 0
+                """)).all()
+        
+        for potion in valid_potions:
+            potion_id = potion[0]
+            price = connection.execute(
+                sqlalchemy.text(
+                """
+                SELECT price FROM potions
+                WHERE id = :potion_id
+                """))
+            total_potions_bought += potion[1]
+            gold_earned += price*potion[1]
     
-    for item_sku, quantity in zip(carts[cart_id]["item"],carts[cart_id]["quantity"]):
-        # red potions
-        if (item_sku == "RED_POTION_0"):
-            if (quantity >= red_potions_for_sale and quantity != 0):
-                red_potions_bought = quantity
-                gold_earned += red_potions_bought*50
-            else:
-                raise HTTPException(status_code=400, message="Items in cart not available.")
-        # green potions
-        if (item_sku == "GREEN_POTION_0"):
-            if (quantity >= green_potions_for_sale and quantity != 0):
-                green_potions_bought = quantity
-                gold_earned += red_potions_bought*10
-            else:
-                raise HTTPException(status_code=400, message="Items in cart not available.")
-        # blue potions
-        if (item_sku == "BLUE_POTION_0"):
-            if (quantity >= blue_potions_for_sale and quantity != 0):
-                blue_potions_bought = quantity
-                gold_earned += red_potions_bought*10
-            else:
-                raise HTTPException(status_code=400, message="Items in cart not available.")
-
-
-    #update database
+    # Update global inventory with money earned
     with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold + gold_earned"))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_potions = num_red_potions - potions_bought"))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions - potions_bought"))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions - potions_bought"))
-
-    total_potions_bought = red_potions_bought + blue_potions_bought + green_potions_bought
+        connection.execute(
+            sqlalchemy.text(
+                """
+                UPDATE global_inventory SET
+                gold = gold + :gold_earned
+                """))
+            
+        
+    # Update potions table, deduct potions that were sold 
+    with db.engine.begin() as connection:
+        connection.execute(
+            sqlalchemy.text(
+                """
+                UPDATE potions
+                SET num_potions = potions.num_potions - cart_items.quantity
+                FROM cart_items
+                WHERE potion.id = cart_items.potion_id and cart_items.cart_id = :cart_id;
+                """))
 
     return {"total_potions_bought": total_potions_bought, "total_gold_paid": gold_earned}
-

@@ -14,34 +14,23 @@ def get_catalog():
     # Can return a max of 20 items.
 
     with db.engine.begin() as connection:
-        num_red_potions_to_sell = connection.execute(sqlalchemy.text(
-            "SELECT num_red_potions FROM global_inventory"))
-        num_green_potions_to_sell = connection.execute(sqlalchemy.text(
-            "SELECT num_green_potions FROM global_inventory"))
-        num_blue_potions_to_sell = connection.execute(sqlalchemy.text(
-            "SELECT num_blue_potions FROM global_inventory"))
+        potions = connection.execute(sqlalchemy.text(
+            """
+            SELECT sku, potion_type, num_potions, price FROM potions
+            WHERE num_potions > 0
+            """
+        )).all()
+    
+    potion_list = []
 
+    for potion in potions:
+        potion_list.append(
+            {"sku": potion[0],
+             "name": potion[0]+ " mix",
+             "quantity": potion[2],
+             "price": potion[3],
+             "potion_type": potion[1]}
+        )
+    
+    return potion_list
 
-    return [
-            {
-                "sku": "RED_POTION_0",
-                "name": "red potion",
-                "quantity": num_red_potions_to_sell,
-                "price": 50,
-                "potion_type": [100, 0, 0, 0],
-            },
-            {
-                "sku": "GREEN_POTION_0",
-                "name": "green potion",
-                "quantity": num_green_potions_to_sell,
-                "price": 10,
-                "potion_type": [0, 100, 0, 0],
-            },
-            {
-                "sku": "BLUE_POTION_0",
-                "name": "blue potion",
-                "quantity": num_blue_potions_to_sell,
-                "price": 10,
-                "potion_type": [0, 0, 100, 0],
-            }
-        ]
