@@ -60,7 +60,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
                 SELECT id FROM potions 
                 WHERE sku = :item_sku
                 """
-            ), [{"item_sku":item_sku}])
+            ), [{"item_sku":item_sku}]).scalar()
         
         available_potions = connection.execute(
             sqlalchemy.text(
@@ -68,7 +68,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
                 SELECT num_potions FROM potions 
                 WHERE sku = :item_sku
                 """
-            ), [{"item_sku":item_sku}])
+            ), [{"item_sku":item_sku}]).scalar()
         
         connection.execute(
             sqlalchemy.text(
