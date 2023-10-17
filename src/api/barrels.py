@@ -64,7 +64,8 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
                 green_ml = green_ml + :green_ml
                 blue_ml = blue_ml + :blue_ml
                 dark_ml = dark_ml + :dark_ml
-                """))
+                """), [{"gold_spent":gold_spent, "red_ml":red_ml, 
+                        "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}])
 
 
     return "OK"
@@ -76,7 +77,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     barrel_list = []
 
     with db.engine.begin() as connection:
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory"))
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
 
     print(wholesale_catalog)
 
