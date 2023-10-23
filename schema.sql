@@ -43,3 +43,4 @@ create table
     constraint potions_pkey primary key (id),
     constraint potions_sku_key unique (sku)
   ) tablespace pg_default;
+

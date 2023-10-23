@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from src.api import auth
 from src import database as db
+import SharedData
 
 router = APIRouter(
     prefix="/barrels",
@@ -31,9 +32,18 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
     green_ml = 0
     dark_ml = 0
 
+    barrel_dict = {}
+
+    SharedData.barrel_id += 1
+    print(SharedData.barrel_id)
+
+    SharedData.gold_id += 1
+    print(SharedData.gold_id)
+
 
     for barrel in barrels_delivered:
         gold_spent += barrel.price * barrel.quantity
+        barrel_dict[barrel.sku] = barrel.quantity
 
         # red barrel
         if barrel.potion_type == [1, 0, 0, 0]:
@@ -50,22 +60,59 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
         else:
             raise HTTPException(status_code=400, message="Bad request. Barrel type invalid.")
     
+    gold_spent = -gold_spent
+    
 
     print(f"gold_spent: {gold_spent}, red_ml: {red_ml}, green_ml: {green_ml}, blue_ml: {blue_ml}, dark_ml: {dark_ml}")
 
-
+    # Update ledger ml
     with db.engine.begin() as connection:
         connection.execute(
             sqlalchemy.text(
                 """
-                UPDATE global_inventory SET
-                gold = gold - :gold_spent,
-                red_ml = red_ml + :red_ml,
-                green_ml = green_ml + :green_ml,
-                blue_ml = blue_ml + :blue_ml,
-                dark_ml = dark_ml + :dark_ml
-                """), [{"gold_spent":gold_spent, "red_ml":red_ml, 
-                        "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}])
+                INSERT INTO ledger_ml (transaction_id, change_red_ml, change_green_ml, change_blue_ml, change_dark_ml)
+                VALUES (:barrel_id, :red_ml, :green_ml, :blue_ml, :dark_ml)
+                """
+            ), [{"barrel_id":SharedData.barrel_id, "red_ml":red_ml, "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}]
+        )
+    # Update ledger gold
+        connection.execute(
+            sqlalchemy.text(
+                """
+                INSERT INTO ledger_gold (transaction_id, change_gold)
+                VALUES (:gold_id, :gold_spent)
+                """
+            ), [{"id":SharedData.gold_id, "gold_spent":gold_spent}]
+        )
+    
+    description = ""
+    for key,value in barrel_dict.items():
+        description += f"{key} barrel : quantity of {value}, "
+
+    # Write message to transactions ledger
+        connection.execute(
+            sqlalchemy.text(
+                """
+                INSERT INTO account_transactions (description)
+                VALUES (:description)
+                """
+            ), [{"description":description}]
+        )
+
+
+
+    # with db.engine.begin() as connection:
+    #     connection.execute(
+    #         sqlalchemy.text(
+    #             """
+    #             UPDATE global_inventory SET
+    #             gold = gold - :gold_spent,
+    #             red_ml = red_ml + :red_ml,
+    #             green_ml = green_ml + :green_ml,
+    #             blue_ml = blue_ml + :blue_ml,
+    #             dark_ml = dark_ml + :dark_ml
+    #             """), [{"gold_spent":gold_spent, "red_ml":red_ml, 
+    #                     "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}])
 
 
     return "OK"
@@ -77,7 +124,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     barrel_list = []
 
     with db.engine.begin() as connection:
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_gold) AS gold FROM ledger_gold")).scalar()
 
     print(wholesale_catalog)
 

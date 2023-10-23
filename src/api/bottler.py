@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
 from src import database as db
+import SharedData
 
 router = APIRouter(
     prefix="/bottler",
@@ -19,67 +20,78 @@ class PotionInventory(BaseModel):
 def post_deliver_bottles(potions_delivered: list[PotionInventory]):
     """ """
 
+    SharedData.potion_id += 1
+    SharedData.barrel_id += 1
+
+    red_ml = 0
+    green_ml = 0
+    blue_ml = 0
+    dark_ml = 0
+
     # First update potions with new potions made
     
     with db.engine.begin() as connection:
         for potion in potions_delivered:
 
             # Update potions with new potions to add
-            potion_type = potion.potion_type
+            this_potion_type = potion.potion_type
             potion_quantity = potion.quantity
+            potion_id = connection.execute(
+                sqlalchemy.text(
+                    """
+                    SELECT id FROM potions
+                    WHERE potion_type = :this_potion_type
+                    """
+                ), [{"potion_type":this_potion_type}]
+            ).scalar()
 
+
+            # Update potions ledger with each new potion made
             connection.execute(
                 sqlalchemy.text(
                 """
-                UPDATE potions SET 
-                num_potions = num_potions + :potion_quantity
-                WHERE potion_type = :potion_type
+                INSERT INTO ledger_potions (transaction_id, potion_id, quantity) 
+                VALUES (:potion_id_transact, :potion_id, :quantity)
                 """
-            ), [{"potion_quantity":potion_quantity, "potion_type":potion_type}])
+            ), [{"potion_id_transact":SharedData.potion_id, "potion_id":potion_id, "quantity":potion_quantity}])
 
-            # Deduct ml from inventory
-            for i in range(0, len(potion_type)):
-                if (i == 0 and potion_type[i] > 0):
-                    new_red = potion_type[i]
-                    connection.execute(
-                        sqlalchemy.text(
-                        """
-                        UPDATE global_inventory SET 
-                        red_ml = red_ml - :new_red
-                        """
-                    ), [{"new_red":new_red}])
 
-                if (i == 1 and potion_type[i] > 0):
-                    new_green = potion_type[i]
-                    connection.execute(
-                        sqlalchemy.text(
-                        """
-                        UPDATE global_inventory SET 
-                        green_ml = green_ml - :new_green
-                        """
-                    ), [{"new_green":new_green}])
+            # connection.execute(
+            #     sqlalchemy.text(
+            #     """
+            #     UPDATE potions SET 
+            #     num_potions = num_potions + :potion_quantity
+            #     WHERE potion_type = :potion_type
+            #     """
+            # ), [{"potion_quantity":potion_quantity, "potion_type":potion_type}])
 
-                if (i == 2 and potion_type[i] > 0):
-                    new_blue = potion_type[i]
-                    connection.execute(
-                        sqlalchemy.text(
-                        """
-                        UPDATE global_inventory SET 
-                        blue_ml = blue_ml - :new_blue
-                        """
-                    ), [{"new_blue":new_blue}])
+            # Track ml lost from making potions
 
-                if (i == 3 and potion_type[i] > 0):
-                    new_dark = potion_type[i]
-                    connection.execute(
-                        sqlalchemy.text(
-                        """
-                        UPDATE global_inventory SET 
-                        dark_ml = dark_ml - :new_dark
-                        """
-                    ), [{"new_dark":new_dark}])
+            for i in range(0, len(this_potion_type)):
+                if (i == 0 and this_potion_type[i] > 0):
+                    red_ml -= this_potion_type[i]
+
+                if (i == 1 and this_potion_type[i] > 0):
+                    green_ml -= this_potion_type[i]
+                
+
+                if (i == 2 and this_potion_type[i] > 0):
+                    blue_ml -= this_potion_type[i]
+                
+
+                if (i == 3 and this_potion_type[i] > 0):
+                    dark_ml -= this_potion_type[i]
+                    
             # end inner for loop
         # end potion loop
+        connection.execute(
+            sqlalchemy.text(
+                """
+                INSERT INTO ledger_ml (transaction_id, change_red_ml, change_green_ml, change_blue_ml, change_dark_ml)
+                VALUES (:barrel_id, :red_ml, :green_ml, :blue_ml, :dark_ml)
+                """
+            ), [{"barrel_id":SharedData.barrel_id, "red_ml":red_ml, "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}]
+        )
 
     print(potions_delivered)
 
@@ -102,10 +114,10 @@ def get_bottle_plan():
     bottle_list = []
 
     with db.engine.begin() as connection:
-        red_ml = connection.execute(sqlalchemy.text("SELECT red_ml FROM global_inventory")).scalar()
-        green_ml = connection.execute(sqlalchemy.text("SELECT green_ml FROM global_inventory")).scalar()
-        blue_ml = connection.execute(sqlalchemy.text("SELECT blue_ml FROM global_inventory")).scalar()
-        dark_ml = connection.execute(sqlalchemy.text("SELECT dark_ml FROM global_inventory")).scalar()
+        red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_red_ml) AS red_ml FROM ledger_ml")).scalar()
+        green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_green_ml) AS green_ml FROM ledger_ml")).scalar()
+        blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_blue_ml) AS blue_ml FROM ledger_ml")).scalar()
+        dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_dark_ml) AS dark_ml FROM ledger_ml")).scalar()
     
         potions_to_make = connection.execute(sqlalchemy.text("SELECT potion_type FROM potions WHERE num_potions < 1")).all()
         potion_list = [item[0] for item in potions_to_make]

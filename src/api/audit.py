@@ -23,14 +23,14 @@ def get_inventory():
     gold = 0
 
     with db.engine.begin() as connection:
-        red_ml = connection.execute(sqlalchemy.text("SELECT red_ml FROM global_inventory")).scalar()       
-        green_ml = connection.execute(sqlalchemy.text("SELECT green_ml FROM global_inventory")).scalar()
-        blue_ml = connection.execute(sqlalchemy.text("SELECT blue_ml FROM global_inventory")).scalar()
-        dark_ml = connection.execute(sqlalchemy.text("SELECT dark_ml FROM global_inventory")).scalar()
+        red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_red_ml) AS red_ml FROM ledger_ml")).scalar()
+        green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_green_ml) AS green_ml FROM ledger_ml")).scalar()
+        blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_blue_ml) AS blue_ml FROM ledger_ml")).scalar()
+        dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_dark_ml) AS dark_ml FROM ledger_ml")).scalar()
 
-        total_potions = connection.execute(sqlalchemy.text("SELECT SUM(num_potions) FROM potions")).scalar()
+        total_potions = connection.execute(sqlalchemy.text("SELECT SUM(change_quantity) FROM ledger_potions")).scalar()
         
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_gold) AS gold FROM ledger_gold")).scalar()
     
     total_ml = red_ml + green_ml + blue_ml + dark_ml
 
