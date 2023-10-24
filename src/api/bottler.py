@@ -38,7 +38,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                 sqlalchemy.text(
                     """
                     SELECT id FROM potions
-                    WHERE potion_type = :this_potion_type
+                    WHERE potion_type = :potion_type
                     """
                 ), [{"potion_type":this_potion_type}]
             ).scalar()
