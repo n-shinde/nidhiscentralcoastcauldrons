@@ -67,7 +67,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                 VALUES (:description)
                 """
             ), [{"description":description}]
-        ).scalar()
+        )
 
         transaction_id = connection.execute(
             sqlalchemy.text(
