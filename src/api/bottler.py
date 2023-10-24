@@ -100,7 +100,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
             connection.execute(
                 sqlalchemy.text(
                 """
-                INSERT INTO ledger_potions (transaction_id, potion_id, quantity) 
+                INSERT INTO ledger_potions (transaction_id, potion_id, change_quantity) 
                 VALUES (:transaction_id, :potion_id, :quantity)
                 """
             ), [{"transaction_id":transaction_id, "potion_id":update_potion_id, "quantity":update_potion_quantity}])
