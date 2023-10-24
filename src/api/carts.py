@@ -5,13 +5,14 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import BaseModel
 from src.api import auth
 from enum import Enum
-import SharedData
 
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],
     dependencies=[Depends(auth.get_api_key)],
 )
+
+cart_id = 0
 
 # class search_sort_options(str, Enum):
 #     customer_name = "customer_name"
@@ -85,8 +86,10 @@ class NewCart(BaseModel):
 def create_cart(new_cart: NewCart):
     """ """
     name = new_cart.customer
-    SharedData.cart_id += 1
-    cart_id = SharedData.cart_id
+    global cart_id 
+    cart_id += 1
+
+    # current_cart_id = SharedData.cart_id
 
     # create account
     with db.engine.begin() as connection:

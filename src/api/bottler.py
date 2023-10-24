@@ -4,13 +4,14 @@ from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
 from src import database as db
-import SharedData
 
 router = APIRouter(
     prefix="/bottler",
     tags=["bottler"],
     dependencies=[Depends(auth.get_api_key)],
 )
+
+potion_id = 0
 
 class PotionInventory(BaseModel):
     potion_type: list[int]
@@ -20,20 +21,17 @@ class PotionInventory(BaseModel):
 def post_deliver_bottles(potions_delivered: list[PotionInventory]):
     """ """
 
-    SharedData.potion_id += 1
-    SharedData.barrel_id += 1
-
     red_ml = 0
     green_ml = 0
     blue_ml = 0
     dark_ml = 0
 
-    # First update potions with new potions made
-    
+    # Get description to add to account_transactions ledger
+    description = ""
+    potions_dict = {}
+
     with db.engine.begin() as connection:
         for potion in potions_delivered:
-
-            # Update potions with new potions to add
             this_potion_type = potion.potion_type
             potion_quantity = potion.quantity
             potion_id = connection.execute(
@@ -44,6 +42,58 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                     """
                 ), [{"potion_type":this_potion_type}]
             ).scalar()
+            potion_sku = connection.execute(
+                sqlalchemy.text(
+                    """
+                    SELECT sku FROM potions
+                    WHERE id = :potion_id
+                    """
+                ), [{"potion_id":potion_id}]
+            ).scalar()
+
+            potions_dict[potion_sku] = potion_quantity
+
+
+    for key,value in potions_dict.items():
+        description += f"{value} {key} potions acquired,  "
+
+
+    # Write new transaction, get transaction id
+    with db.engine.begin() as connection:
+        connection.execute(
+            sqlalchemy.text(
+                """
+                INSERT INTO account_transactions (description)
+                VALUES (:description)
+                """
+            ), [{"description":description}]
+        ).scalar()
+
+        transaction_id = connection.execute(
+            sqlalchemy.text(
+                """
+                SELECT id FROM account_transactions 
+                WHERE description = :description
+                """
+            ), [{"description":description}]
+        ).scalar()
+
+
+    # Update potions and ledger_ml    
+    with db.engine.begin() as connection:
+        for potion in potions_delivered:
+
+            # Update potions with new potions to add
+            update_potion_type = potion.potion_type
+            update_potion_quantity = potion.quantity
+            update_potion_id = connection.execute(
+                sqlalchemy.text(
+                    """
+                    SELECT id FROM potions
+                    WHERE potion_type = :potion_type
+                    """
+                ), [{"potion_type":update_potion_type}]
+            ).scalar()
 
 
             # Update potions ledger with each new potion made
@@ -51,9 +101,9 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                 sqlalchemy.text(
                 """
                 INSERT INTO ledger_potions (transaction_id, potion_id, quantity) 
-                VALUES (:potion_id_transact, :potion_id, :quantity)
+                VALUES (:transaction_id, :potion_id, :quantity)
                 """
-            ), [{"potion_id_transact":SharedData.potion_id, "potion_id":potion_id, "quantity":potion_quantity}])
+            ), [{"transaction_id":transaction_id, "potion_id":update_potion_id, "quantity":update_potion_quantity}])
 
 
             # connection.execute(
@@ -88,9 +138,9 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
             sqlalchemy.text(
                 """
                 INSERT INTO ledger_ml (transaction_id, change_red_ml, change_green_ml, change_blue_ml, change_dark_ml)
-                VALUES (:barrel_id, :red_ml, :green_ml, :blue_ml, :dark_ml)
+                VALUES (:transaction_id, :red_ml, :green_ml, :blue_ml, :dark_ml)
                 """
-            ), [{"barrel_id":SharedData.barrel_id, "red_ml":red_ml, "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}]
+            ), [{"transaction_id":transaction_id, "red_ml":red_ml, "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}]
         )
 
     print(potions_delivered)

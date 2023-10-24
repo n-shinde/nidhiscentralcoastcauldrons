@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from src.api import auth
 from src import database as db
-import SharedData
 
 router = APIRouter(
     prefix="/barrels",
@@ -11,6 +10,8 @@ router = APIRouter(
     dependencies=[Depends(auth.get_api_key)],
 )
 
+gold_id = 0
+barrel_id = 0
 
 class Barrel(BaseModel):
     sku: str
@@ -34,11 +35,13 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
 
     barrel_dict = {}
 
-    SharedData.barrel_id += 1
-    print(SharedData.barrel_id)
+    global barrel_id
+    barrel_id += 1
+    print(barrel_id)
 
-    SharedData.gold_id += 1
-    print(SharedData.gold_id)
+    global gold_id
+    gold_id += 1
+    print(gold_id)
 
 
     for barrel in barrels_delivered:
@@ -65,31 +68,12 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
 
     print(f"gold_spent: {gold_spent}, red_ml: {red_ml}, green_ml: {green_ml}, blue_ml: {blue_ml}, dark_ml: {dark_ml}")
 
-    # Update ledger ml
-    with db.engine.begin() as connection:
-        connection.execute(
-            sqlalchemy.text(
-                """
-                INSERT INTO ledger_ml (transaction_id, change_red_ml, change_green_ml, change_blue_ml, change_dark_ml)
-                VALUES (:barrel_id, :red_ml, :green_ml, :blue_ml, :dark_ml)
-                """
-            ), [{"barrel_id":SharedData.barrel_id, "red_ml":red_ml, "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}]
-        )
-    # Update ledger gold
-        connection.execute(
-            sqlalchemy.text(
-                """
-                INSERT INTO ledger_gold (transaction_id, change_gold)
-                VALUES (:gold_id, :gold_spent)
-                """
-            ), [{"id":SharedData.gold_id, "gold_spent":gold_spent}]
-        )
-    
     description = ""
     for key,value in barrel_dict.items():
-        description += f"{key} barrel : quantity of {value}, "
+        description += f"{key} barrel bought : quantity of {value}, "
 
-    # Write message to transactions ledger
+    with db.engine.begin() as connection:
+        # Write message to transactions ledger
         connection.execute(
             sqlalchemy.text(
                 """
@@ -99,6 +83,37 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
             ), [{"description":description}]
         )
 
+        # Get transaction id
+        transaction_id = connection.execute(
+            sqlalchemy.text(
+                """
+                SELECT id FROM account_transactions
+                WHERE description = :description
+                """
+            ), [{"description":description}]
+        ).scalar()
+
+
+    # Update ledger ml
+    with db.engine.begin() as connection:
+        connection.execute(
+            sqlalchemy.text(
+                """
+                INSERT INTO ledger_ml (transaction_id, change_red_ml, change_green_ml, change_blue_ml, change_dark_ml)
+                VALUES (:transaction_id, :red_ml, :green_ml, :blue_ml, :dark_ml)
+                """
+            ), [{"transaction_id":transaction_id, "red_ml":red_ml, "green_ml":green_ml, "blue_ml":blue_ml, "dark_ml":dark_ml}]
+        )
+    # Update ledger gold
+        connection.execute(
+            sqlalchemy.text(
+                """
+                INSERT INTO ledger_gold (transaction_id, change_gold)
+                VALUES (:transaction_id, :gold_spent)
+                """
+            ), [{"transaction_id":transaction_id, "gold_spent":gold_spent}]
+        )
+    
 
 
     # with db.engine.begin() as connection:
