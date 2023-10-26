@@ -12,7 +12,7 @@ router = APIRouter(
     dependencies=[Depends(auth.get_api_key)],
 )
 
-cart_id = 0
+#cart_id = 0
 
 # class search_sort_options(str, Enum):
 #     customer_name = "customer_name"
@@ -86,8 +86,8 @@ class NewCart(BaseModel):
 def create_cart(new_cart: NewCart):
     """ """
     name = new_cart.customer
-    global cart_id 
-    cart_id += 1
+    #global cart_id 
+    #cart_id += 1
 
     # current_cart_id = SharedData.cart_id
 
@@ -106,11 +106,22 @@ def create_cart(new_cart: NewCart):
         connection.execute(
             sqlalchemy.text(
             """
-            INSERT INTO carts (cart_id, customer_name) 
-            VALUES (:cart_id, :name)
-            """, [{"cart_id":cart_id, "name": name}]
-            )
+            INSERT INTO carts (customer_name) 
+            VALUES (:name)
+            """
+            ), [{"name": name}]
         )
+
+        # get cart id of cart just made
+        cart_id = connection.execute(
+            sqlalchemy.text(
+                """
+                SELECT cart_id FROM carts
+                WHERE customer_name = :name 
+                """
+            ), [{"name": name}]
+        ).scalar()
+
 
     return {"cart_id": cart_id}
 
