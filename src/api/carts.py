@@ -97,7 +97,7 @@ def create_cart(new_cart: NewCart):
             sqlalchemy.text(
             """
             INSERT INTO accounts (customer_name) 
-            VALUES (:name)"
+            VALUES (:name)
             """ 
             ), [{"name": name}]
         )
@@ -107,7 +107,7 @@ def create_cart(new_cart: NewCart):
             sqlalchemy.text(
             """
             INSERT INTO carts (cart_id, customer_name) 
-            VALUES (:cart_id, :name)"
+            VALUES (:cart_id, :name)
             """, [{"cart_id":cart_id, "name": name}]
             )
         )
