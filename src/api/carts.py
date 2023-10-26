@@ -98,8 +98,8 @@ def create_cart(new_cart: NewCart):
             """
             INSERT INTO accounts (customer_name) 
             VALUES (:name)"
-            """, [{"name": name}]
-            )
+            """ 
+            ), [{"name": name}]
         )
 
         # create cart just in case
